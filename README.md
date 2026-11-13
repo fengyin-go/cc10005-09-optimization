@@ -58,6 +58,7 @@ npm run dev
 | 限速控制 | `ratelimit` | 限速配置 | 配置编号、目标站点、每秒请求上限 |
 | 失败重试 | `retry` | 重试策略 | 策略编号、关联任务、最大重试次数 |
 | 字段映射 | `extractor` | 映射规则 | 规则编号、源字段名称、目标字段名称 |
+| 字段投影 | `projection` | 投影版本 | 版本号、隔离状态、冲突裁决、预演结论 |
 | 采集流水线 | `pipeline` | 流水线步骤 | 步骤编号、步骤名称、输入数据源 |
 | 结果校验 | `validator` | 校验规则 | 规则编号、校验对象、校验类型 |
 | 数据落盘 | `storage` | 存储配置 | 配置编号、存储类型、输出路径 |
@@ -70,10 +71,35 @@ npm run dev
 
 ## 约定
 
-- 每个模块的前端页面在 `frontend/src/views/<模块>/index.vue`，后端接口在
+- 每个模块的前端页面在 `frontend/src/views/<模块>/index.tsx`，后端接口在
   `backend/app/routers/<模块>.py`，业务规则在 `backend/app/services/<模块>.py`。
 - 列表接口统一返回 `{ items, total, page, size }`，动作接口统一返回 `{ ok, message }`。
 - 状态流转只允许在 `app/services` 里改，路由层不做业务判断。
+- 投影预演按“源字段 → 默认填充 → 类型转换 → 清洗 → 写入目标”逐步展开；
+  转换或清洗失败得到 `null` 并以 `dropped` / `rejected` 状态说明原因，不会写成空字符串。
+- 多个写入方争用同一目标（含清洗输出重名）必须先裁决保留谁、落选字段丢弃还是重命名；
+  未裁决的目标整体挂起，不按顺序静默覆盖。
+- 编辑中版本与已启用版本隔离：已启用版本只读，发布前必须有与当前 revision 一致的通过预演；
+  发布只替换现用版本，不改写任务绑定，既有任务继续按原绑定版本执行。
+
+## 字段投影预演
+
+页面 `/projection`，接口 `/api/projection`，规则代码见
+`backend/app/services/projection.py` 与 `backend/app/services/projection_engine.py`。
+
+主要接口：
+
+| 方法 | 路径 | 作用 |
+| --- | --- | --- |
+| GET | `/api/projection/meta` | 样本、枚举与任务绑定 |
+| GET | `/api/projection/versions` | 版本列表与未裁决冲突数 |
+| POST | `/api/projection/versions/{id}/fork` | 从已启用版本派生编辑草稿 |
+| POST | `/api/projection/versions/{id}/preview` | 分步预演（编辑中版本可发布，已启用版本只读查看） |
+| POST | `/api/projection/versions/{id}/conflicts/{cid}/resolve` | 冲突裁决（保留方 + 丢弃/重命名） |
+| POST | `/api/projection/versions/{id}/publish` | 发布闸门：预演未通过或 revision 过期会被拒绝 |
+| POST | `/api/projection/bindings/rebind` | 任务显式改绑到已启用版本 |
+
+回归测试：`cd backend && .venv/bin/python -m unittest discover -s tests -v`。
 
 领域：数据工程
 子方向：数据采集、爬虫与RPA

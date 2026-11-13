@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
+import { Link } from 'react-router-dom'
+
 import { request } from '@/api/client'
 
 const ENDPOINT = '/api/extractor'
@@ -89,10 +91,11 @@ export default function ExtractorView() {
       <header className="page-head">
         <div>
           <h2>字段映射管理</h2>
-          <p className="page-desc">维护字段映射规则的输入、执行约束与结果记录，为字段映射提供可验证的数据工程流程。</p>
+          <p className="page-desc">维护字段映射规则的输入、执行约束与结果记录；投影编辑与分步预演请进入“字段投影”。</p>
         </div>
         <div className="page-actions">
-          <button className="btn primary" type="button" onClick={() => setErrorMessage('映射规则登记入口尚未接入审批流')}>
+          <Link className="btn primary" to="/projection">打开投影预演</Link>
+          <button className="btn" type="button" onClick={() => setErrorMessage('映射规则登记入口尚未接入审批流')}>
             登记映射规则
           </button>
           <button className="btn" type="button" onClick={() => window.open(`${ENDPOINT}/export`, '_blank')}>
